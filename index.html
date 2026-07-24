@@ -24,8 +24,8 @@
         <button class="nav-item" data-view="rules"><span>◎</span>规则</button>
       </nav>
       <div class="season-card">
-        <strong>第 1 赛季</strong>
-        <span>第 1 周 · 周日 24:00 结算</span>
+        <strong id="seasonTitle">本周赛程</strong>
+        <span id="seasonRange">自动按自然周结算</span>
       </div>
     </aside>
 
@@ -73,7 +73,7 @@
           <form class="panel record-form" id="recordForm">
             <div class="panel-head">
               <h3>晨起空腹数据</h3>
-              <span>保存后自动重算本周分数</span>
+              <span id="ocrStatus">上传截图后自动识别</span>
             </div>
 
             <div class="segmented" role="tablist" aria-label="选择记录人">
@@ -83,10 +83,10 @@
 
             <div class="form-grid">
               <label>日期<input id="dateInput" type="date" required /></label>
-              <label>体重 kg<input id="weightInput" type="number" step="0.01" required /></label>
-              <label>体脂率 %<input id="fatInput" type="number" step="0.01" required /></label>
-              <label>骨骼肌 kg<input id="muscleInput" type="number" step="0.01" required /></label>
-              <label>基础代谢 kcal<input id="metabolismInput" type="number" step="1" required /></label>
+              <label>体重 kg<input id="weightInput" type="number" step="0.01" /></label>
+              <label>体脂率 %<input id="fatInput" type="number" step="0.01" /></label>
+              <label>骨骼肌 kg<input id="muscleInput" type="number" step="0.01" /></label>
+              <label>基础代谢 kcal<input id="metabolismInput" type="number" step="1" /></label>
               <label>训练状态<select id="stateInput"><option>力量训练</option><option>有氧</option><option>拉伸</option><option>休息</option></select></label>
             </div>
 
@@ -113,6 +113,16 @@
       </section>
 
       <section class="view" id="rulesView" data-title="比赛规则">
+        <form class="panel settings-form" id="settingsForm">
+          <div class="panel-head"><h3>基础数据设置</h3><span>保存后作为长期基础资料</span></div>
+          <div class="settings-grid">
+            <label>柯柯昵称<input id="maleNameSetting" type="text" /></label>
+            <label>柯柯身高 cm<input id="maleHeightSetting" type="number" step="1" /></label>
+            <label>兔姐昵称<input id="femaleNameSetting" type="text" /></label>
+            <label>兔姐身高 cm<input id="femaleHeightSetting" type="number" step="1" /></label>
+          </div>
+          <button class="primary-btn" type="submit">保存基础数据</button>
+        </form>
         <div class="rules-grid">
           <article class="panel rule-card"><h3>体脂率优化 · 40 分</h3><p>男生相对下降 ≥ 1.2% 满分，女生相对下降 ≥ 1.0% 满分。无变化或上涨为 0 分。</p></article>
           <article class="panel rule-card"><h3>骨骼肌增长 · 35 分</h3><p>男生周涨幅 ≥ 0.7% 满分，女生周涨幅 ≥ 0.4% 满分。骨骼肌下降倒扣 15 分。</p></article>
@@ -131,6 +141,7 @@
     </nav>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
