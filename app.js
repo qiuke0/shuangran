@@ -1,4 +1,5 @@
 const today = new Date().toISOString().slice(0, 10);
+const currentWeek = getWeekRange(today);
 
 const state = {
   activeView: 'dashboard',
@@ -8,47 +9,42 @@ const state = {
   players: JSON.parse(localStorage.getItem('shuangran.players') || 'null') || {
     male: {
       name: '柯柯', gender: 'male', height: 175, factor: 1,
-      records: [
-        rec('2026-07-20', 62.5, 17.6, 29.8, 1510),
-        rec('2026-07-21', 62.6, 17.5, 29.9, 1512),
-        rec('2026-07-22', 62.7, 17.4, 29.95, 1516),
-        rec('2026-07-23', 62.6, 17.3, 30.0, 1518),
-        rec('2026-07-24', 62.8, 17.2, 30.08, 1520),
-        rec('2026-07-25', 62.9, 17.15, 30.09, 1520),
-        rec('2026-07-26', 62.7, 17.1, 30.12, 1521),
-      ]
+      records: []
     },
     female: {
       name: '兔姐', gender: 'female', height: 163, factor: 1.28,
-      records: [
-        rec('2026-07-20', 49.0, 24.2, 20.6, 1190),
-        rec('2026-07-21', 49.1, 24.1, 20.62, 1190),
-        rec('2026-07-22', 49.0, 24.0, 20.63, 1192),
-        rec('2026-07-23', 49.2, 23.95, 20.66, 1194),
-        rec('2026-07-24', 49.1, 23.9, 20.68, 1195),
-        rec('2026-07-25', 49.0, 23.85, 20.7, 1195),
-        rec('2026-07-26', 49.1, 23.8, 20.72, 1196),
-      ]
+      records: []
     }
   }
 };
 
 state.players.male.name = '柯柯';
 state.players.female.name = '兔姐';
+state.players.male.records = removeDemoRecords(state.players.male.records || []);
+state.players.female.records = removeDemoRecords(state.players.female.records || []);
 
 function rec(date, weight, fat, muscle, metabolism, image = 'demo') {
   return { date, weight, fat, muscle, metabolism, image, state: '力量训练', note: '' };
 }
 
+function removeDemoRecords(records) {
+  return records.filter(record => record.image !== 'demo');
+}
+
+function isFilled(value) { return value !== '' && value !== null && value !== undefined && !Number.isNaN(Number(value)); }
+function display(value, suffix = '') { return isFilled(value) ? `${value}${suffix}` : '-'; }
 function round(value, digits = 2) { return Number(value.toFixed(digits)); }
 function pct(start, end) { return ((end - start) / start) * 100; }
 
 function scorePlayer(player) {
-  const records = [...player.records].sort((a, b) => a.date.localeCompare(b.date));
-  const validDays = records.filter(r => r.image).length;
+  const records = currentWeekRecords(player).filter(hasCoreFields).sort((a, b) => a.date.localeCompare(b.date));
+  const validDays = currentWeekRecords(player).filter(r => r.image && hasCoreFields(r)).length;
   const missingDays = Math.max(0, 7 - validDays);
-  if (records.length < 2 || missingDays > 0) {
-    return emptyScore(player, validDays, missingDays);
+  if (records.length < 2) {
+    return emptyScore(player, validDays, missingDays, '至少需要本周两天完整数据才能计算趋势分。');
+  }
+  if (missingDays > 0) {
+    return emptyScore(player, validDays, missingDays, `本周仍缺少 ${missingDays} 天完整截图数据，结算前暂不计分。`);
   }
 
   const first = records[0];
@@ -92,8 +88,8 @@ function scorePlayer(player) {
   };
 }
 
-function emptyScore(player, validDays, missingDays) {
-  return { validDays, missingDays, fatScore: 0, muscleScore: 0, weightScore: 0, metabolismScore: 0, raw: 0, final: 0, fatDrop: 0, muscleChange: 0, weightChange: 0, metabolismChange: 0, summary: `缺少 ${missingDays} 天截图，本周按规则清零。` };
+function emptyScore(player, validDays, missingDays, summary) {
+  return { validDays, missingDays, fatScore: '-', muscleScore: '-', weightScore: '-', metabolismScore: '-', raw: '-', final: '-', fatDrop: '-', muscleChange: '-', weightChange: '-', metabolismChange: '-', summary };
 }
 
 function summaryText(fat, muscle, weight, metabolism) {
@@ -109,13 +105,17 @@ function summaryText(fat, muscle, weight, metabolism) {
 function getScores() {
   const male = scorePlayer(state.players.male);
   const female = scorePlayer(state.players.female);
-  const winnerKey = male.final > female.final ? 'male' : female.final > male.final ? 'female' : male.muscleChange >= female.muscleChange ? 'male' : 'female';
+  const maleFinal = Number(male.final);
+  const femaleFinal = Number(female.final);
+  if (!isFilled(maleFinal) && !isFilled(femaleFinal)) return { male, female, winnerKey: null, winner: null };
+  const winnerKey = maleFinal > femaleFinal ? 'male' : femaleFinal > maleFinal ? 'female' : Number(male.muscleChange) >= Number(female.muscleChange) ? 'male' : 'female';
   return { male, female, winnerKey, winner: state.players[winnerKey] };
 }
 
 function render() {
   const scores = getScores();
-  document.querySelector('#leaderPill').textContent = `${scores.winner.name}领先 · ${scores[scores.winnerKey].final}分`;
+  document.querySelector('#leaderPill').textContent = scores.winner ? `${scores.winner.name}领先 · ${scores[scores.winnerKey].final}分` : '等待完整数据';
+  document.querySelector('#seasonRange').textContent = `${currentWeek.start} 至 ${currentWeek.end}`;
   renderScoreCard('male', scores.male);
   renderScoreCard('female', scores.female);
   renderDashboard(scores);
@@ -133,35 +133,36 @@ function renderScoreCard(key, score) {
     <div class="score-number">${score.final}</div>
     <div class="score-sub">原始 ${score.raw} 分 · 有效记录 ${score.validDays}/7</div>
     <div class="score-kpis">
-      <div class="mini-kpi"><span>体重</span><strong>${latest.weight} kg</strong></div>
-      <div class="mini-kpi"><span>体脂</span><strong>${latest.fat}%</strong></div>
-      <div class="mini-kpi"><span>骨骼肌</span><strong>${latest.muscle} kg</strong></div>
-      <div class="mini-kpi"><span>基础代谢</span><strong>${latest.metabolism}</strong></div>
+      <div class="mini-kpi"><span>体重</span><strong>${display(latest?.weight, ' kg')}</strong></div>
+      <div class="mini-kpi"><span>体脂</span><strong>${display(latest?.fat, '%')}</strong></div>
+      <div class="mini-kpi"><span>骨骼肌</span><strong>${display(latest?.muscle, ' kg')}</strong></div>
+      <div class="mini-kpi"><span>基础代谢</span><strong>${display(latest?.metabolism)}</strong></div>
     </div>`;
 }
 
 function renderDashboard(scores) {
-  document.querySelector('#weeklyInsight').textContent = `本周暂时由${scores.winner.name}领先。${scores.winner.name}${scores[scores.winnerKey].summary}`;
+  document.querySelector('#weeklyInsight').textContent = scores.winner ? `本周暂时由${scores.winner.name}领先。${scores.winner.name}${scores[scores.winnerKey].summary}` : '上传每天的体脂秤截图后，系统会尝试 OCR 自动识别数据；识别不到的字段保持空值，不参与计算。下一周会按日期自动生成新的自然周。';
   const totalValid = scores.male.validDays + scores.female.validDays;
   document.querySelector('#recordCountLabel').textContent = `双方 ${totalValid}/14`;
   document.querySelector('#todayGrid').innerHTML = ['male', 'female'].map(key => {
     const player = state.players[key];
     const latest = latestRecord(player);
-    return `<article class="today-card"><strong>${player.name}</strong><div class="status-ok">${latest.image ? '今日已记录' : '等待截图'}</div><div class="metric-line">体重 ${latest.weight} kg</div><div class="metric-line">体脂 ${latest.fat}%</div><div class="metric-line">骨骼肌 ${latest.muscle} kg</div></article>`;
+    return `<article class="today-card"><strong>${player.name}</strong><div class="status-ok">${latest?.image ? '今日已记录' : '等待截图'}</div><div class="metric-line">体重 ${display(latest?.weight, ' kg')}</div><div class="metric-line">体脂 ${display(latest?.fat, '%')}</div><div class="metric-line">骨骼肌 ${display(latest?.muscle, ' kg')}</div></article>`;
   }).join('');
 }
 
 function renderRecordList() {
   const player = state.players[state.activePlayer];
-  document.querySelector('#recordList').innerHTML = [...player.records].sort((a, b) => b.date.localeCompare(a.date)).map(r => `
+  const records = currentWeekRecords(player).sort((a, b) => b.date.localeCompare(a.date));
+  document.querySelector('#recordList').innerHTML = records.length ? records.map(r => `
     <article class="record-item">
-      <div><strong>${r.date} · ${r.state || '未标记'}</strong><span>${r.weight}kg / ${r.fat}% / 骨骼肌 ${r.muscle}kg / 代谢 ${r.metabolism}</span></div>
+      <div><strong>${r.date} · ${r.state || '未标记'}</strong><span>${display(r.weight, 'kg')} / ${display(r.fat, '%')} / 骨骼肌 ${display(r.muscle, 'kg')} / 代谢 ${display(r.metabolism)}</span></div>
       <div class="thumb">${r.image && r.image !== 'demo' ? `<img src="${r.image}" alt="截图">` : '图'}</div>
-    </article>`).join('');
+    </article>`).join('') : '<p class="summary">本周还没有记录。上传截图后会自动识别并保存到这里。</p>';
 }
 
 function renderReport(scores) {
-  document.querySelector('#winnerPanel').innerHTML = `<h3>本周冠军：${scores.winner.name}</h3><p>${scores.winner.name}最终分更高。单周胜负独立结算，赛季累计总分定总冠军。</p>`;
+  document.querySelector('#winnerPanel').innerHTML = scores.winner ? `<h3>本周冠军：${scores.winner.name}</h3><p>${scores.winner.name}最终分更高。单周胜负独立结算，赛季累计总分定总冠军。</p>` : '<h3>等待本周完整数据</h3><p>当前没有足够完整的数据结算。本周结束后会根据自然周日期自动统计，不需要手动创建下一周。</p>';
   document.querySelector('#breakdownGrid').innerHTML = ['male', 'female'].map(key => breakdownHtml(state.players[key], scores[key])).join('');
 }
 
@@ -178,7 +179,15 @@ function scoreRow(label, value, detail) {
   return `<div class="score-row"><div><strong>${label}</strong><br><span>${detail}</span></div><b>${value}</b></div>`;
 }
 
-function latestRecord(player) { return [...player.records].sort((a, b) => a.date.localeCompare(b.date)).at(-1); }
+function latestRecord(player) { return currentWeekRecords(player).sort((a, b) => a.date.localeCompare(b.date)).at(-1) || {}; }
+
+function currentWeekRecords(player) {
+  return [...player.records].filter(r => r.date >= currentWeek.start && r.date <= currentWeek.end);
+}
+
+function hasCoreFields(record) {
+  return ['weight', 'fat', 'muscle', 'metabolism'].every(key => isFilled(record[key]));
+}
 
 function drawTrend() {
   const canvas = document.querySelector('#trendCanvas');
@@ -199,6 +208,14 @@ function drawTrend() {
   ];
   state.trendPoints = [];
   const all = series.flatMap(s => relativeFatSeries(state.players[s.key].records).map(item => item.value));
+  if (!all.length) {
+    ctx.fillStyle = 'rgba(255,251,234,.82)';
+    ctx.font = '800 24px "SF Pro Rounded", "PingFang SC", system-ui';
+    ctx.fillText('暂无本周体脂数据', 54, 118);
+    ctx.font = '700 15px "SF Pro Rounded", "PingFang SC", system-ui';
+    ctx.fillText('上传截图并识别数据后，这里会自动生成趋势。', 54, 150);
+    return;
+  }
   const min = Math.min(...all, 0) - 0.25;
   const max = Math.max(...all, 0) + 0.25;
   const plot = { left: 54, right: width - 42, top: 46, bottom: height - 42 };
@@ -280,7 +297,7 @@ function drawGrid(ctx, width, height, min, max, plot) {
 }
 
 function relativeFatSeries(records) {
-  const sorted = [...records].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...records].filter(r => r.date >= currentWeek.start && r.date <= currentWeek.end && isFilled(r.fat)).sort((a, b) => a.date.localeCompare(b.date));
   const first = sorted[0]?.fat || 1;
   return sorted.map(record => ({
     record,
@@ -345,10 +362,17 @@ function bindTrendTooltip() {
 function fillFormFromLatest() {
   const latest = latestRecord(state.players[state.activePlayer]);
   document.querySelector('#dateInput').value = today;
-  document.querySelector('#weightInput').value = latest.weight;
-  document.querySelector('#fatInput').value = latest.fat;
-  document.querySelector('#muscleInput').value = latest.muscle;
-  document.querySelector('#metabolismInput').value = latest.metabolism;
+  document.querySelector('#weightInput').value = latest.weight ?? '';
+  document.querySelector('#fatInput').value = latest.fat ?? '';
+  document.querySelector('#muscleInput').value = latest.muscle ?? '';
+  document.querySelector('#metabolismInput').value = latest.metabolism ?? '';
+}
+
+function fillSettingsForm() {
+  document.querySelector('#maleNameSetting').value = state.players.male.name;
+  document.querySelector('#maleHeightSetting').value = state.players.male.height ?? '';
+  document.querySelector('#femaleNameSetting').value = state.players.female.name;
+  document.querySelector('#femaleHeightSetting').value = state.players.female.height ?? '';
 }
 
 document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
@@ -371,9 +395,56 @@ document.querySelector('#imageInput').addEventListener('change', event => {
     document.querySelector('#imagePreview').src = reader.result;
     document.querySelector('.upload-box').classList.add('has-image');
     document.querySelector('#uploadText').textContent = '已选择截图，点击更换';
+    runOcr(reader.result);
   };
   reader.readAsDataURL(file);
 });
+
+async function runOcr(imageData) {
+  const status = document.querySelector('#ocrStatus');
+  if (!window.Tesseract) {
+    status.textContent = 'OCR库未加载，已保留手动空值';
+    return;
+  }
+  status.textContent = 'OCR识别中...';
+  try {
+    const result = await Tesseract.recognize(imageData, 'chi_sim+eng');
+    const text = result.data.text || '';
+    const parsed = parseScaleText(text);
+    fillIfParsed('#weightInput', parsed.weight);
+    fillIfParsed('#fatInput', parsed.fat);
+    fillIfParsed('#muscleInput', parsed.muscle);
+    fillIfParsed('#metabolismInput', parsed.metabolism);
+    const found = Object.values(parsed).filter(isFilled).length;
+    status.textContent = found ? `OCR完成：识别到 ${found}/4 项` : 'OCR未识别到有效数据，请保留空值或手动修正';
+  } catch (error) {
+    status.textContent = 'OCR识别失败，字段保持空值';
+  }
+}
+
+function fillIfParsed(selector, value) {
+  if (isFilled(value)) document.querySelector(selector).value = value;
+}
+
+function parseScaleText(text) {
+  const normalized = text.replace(/\s+/g, ' ').replace(/％/g, '%');
+  return {
+    weight: pickNumber(normalized, ['体重', 'weight', 'kg']),
+    fat: pickNumber(normalized, ['体脂率', '体脂', 'body fat', 'fat']),
+    muscle: pickNumber(normalized, ['骨骼肌', '肌肉量', 'skeletal muscle', 'muscle']),
+    metabolism: pickNumber(normalized, ['基础代谢', '代谢', 'bmr', 'kcal'])
+  };
+}
+
+function pickNumber(text, labels) {
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`${escaped}[^0-9]{0,12}([0-9]{2,4}(?:\\.[0-9]{1,2})?)`, 'i');
+    const match = text.match(regex);
+    if (match) return Number(match[1]);
+  }
+  return '';
+}
 
 document.querySelector('#recordForm').addEventListener('submit', event => {
   event.preventDefault();
@@ -381,13 +452,13 @@ document.querySelector('#recordForm').addEventListener('submit', event => {
   const date = document.querySelector('#dateInput').value;
   const next = {
     date,
-    weight: Number(document.querySelector('#weightInput').value),
-    fat: Number(document.querySelector('#fatInput').value),
-    muscle: Number(document.querySelector('#muscleInput').value),
-    metabolism: Number(document.querySelector('#metabolismInput').value),
+    weight: readNumber('#weightInput'),
+    fat: readNumber('#fatInput'),
+    muscle: readNumber('#muscleInput'),
+    metabolism: readNumber('#metabolismInput'),
     state: document.querySelector('#stateInput').value,
     note: document.querySelector('#noteInput').value,
-    image: state.imageData || 'demo'
+    image: state.imageData || ''
   };
   player.records = player.records.filter(r => r.date !== date).concat(next).sort((a, b) => a.date.localeCompare(b.date));
   state.imageData = '';
@@ -399,6 +470,39 @@ document.querySelector('#recordForm').addEventListener('submit', event => {
   switchView('dashboard');
 });
 
+document.querySelector('#settingsForm').addEventListener('submit', event => {
+  event.preventDefault();
+  state.players.male.name = document.querySelector('#maleNameSetting').value || '柯柯';
+  state.players.male.height = readNumber('#maleHeightSetting');
+  state.players.female.name = document.querySelector('#femaleNameSetting').value || '兔姐';
+  state.players.female.height = readNumber('#femaleHeightSetting');
+  localStorage.setItem('shuangran.players', JSON.stringify(state.players));
+  render();
+});
+
+function getWeekRange(dateString) {
+  const date = new Date(`${dateString}T00:00:00`);
+  const day = date.getDay() || 7;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() - day + 1);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: toDateInput(monday), end: toDateInput(sunday) };
+}
+
+function toDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function readNumber(selector) {
+  const value = document.querySelector(selector).value;
+  return value === '' ? '' : Number(value);
+}
+
 fillFormFromLatest();
+fillSettingsForm();
 bindTrendTooltip();
 render();
