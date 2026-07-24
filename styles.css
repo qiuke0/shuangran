@@ -214,6 +214,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .primary-btn:hover { filter: brightness(1.03); }
 .record-list { display: grid; gap: 10px; }
 .record-item { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; border-bottom: 1px solid #eef0ea; padding: 8px 0 12px; }
+.record-item { cursor: pointer; border-radius: 12px; padding-left: 8px; padding-right: 8px; }
+.record-item:hover { background: rgba(239, 224, 188, .42); }
 .record-item:last-child { border-bottom: 0; padding-bottom: 0; }
 .record-item strong { display: block; }
 .record-item span { color: var(--muted); font-size: 13px; }
@@ -237,6 +239,39 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .rule-card.wide { grid-column: 1 / -1; }
 
 .mobile-tabs { display: none; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 35, 23, .46);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 80;
+}
+.modal-backdrop.open { display: flex; }
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(88vh, 860px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid rgba(226, 210, 173, .95);
+  border-radius: 22px;
+  box-shadow: 0 28px 80px rgba(43, 35, 23, .28);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+.modal-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.modal-head h3 { margin: 2px 0 0; font-size: 24px; }
+.modal-kicker { margin: 0; color: var(--green); font-size: 13px; font-weight: 900; }
+.icon-btn { width: 38px; height: 38px; border: 0; border-radius: 12px; background: rgba(239, 224, 188, .8); color: var(--ink); font-size: 26px; line-height: 1; }
+.detail-upload { min-height: 180px; }
+.ocr-note { margin: -4px 0 0; color: var(--muted); font-size: 13px; font-weight: 800; }
+.modal-actions { display: flex; justify-content: space-between; gap: 12px; }
+.modal-actions .primary-btn, .modal-actions .ghost-btn { flex: 1; }
+.ghost-btn { min-height: 52px; border: 1px solid rgba(210, 111, 54, .35); border-radius: 16px; background: rgba(245, 194, 142, .38); color: #8b4429; font-weight: 950; }
 
 @media (max-width: 900px) {
   .app-shell { display: block; padding-top: 66px; padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
@@ -265,6 +300,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
     grid-template-columns: repeat(4, 1fr);
     z-index: 20;
   }
+  .modal-backdrop { align-items: flex-end; padding: 10px; }
+  .modal-card { max-height: 86vh; border-radius: 22px 22px 18px 18px; padding: 16px; }
+  .modal-actions { flex-direction: column-reverse; }
   .mobile-tab { border: 0; background: transparent; color: #8b9188; display: grid; place-items: center; align-content: center; gap: 3px; font-size: 20px; font-weight: 900; }
   .mobile-tab span { font-size: 12px; }
   .mobile-tab.active { color: var(--green); background: rgba(126,149,51,.12); border-radius: 14px; }
