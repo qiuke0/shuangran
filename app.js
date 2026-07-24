@@ -8,11 +8,13 @@ const state = {
   trendPoints: [],
   players: JSON.parse(localStorage.getItem('shuangran.players') || 'null') || {
     male: {
-      name: '柯柯', gender: 'male', height: 175, factor: 1,
+      name: '柯柯', gender: 'male', age: 24, height: 175, initialWeight: 62.5, goal: '增肌 + 小幅减脂', factor: 1,
+      rules: { fatFull: 1.2, muscleFull: 0.7, weightBand: 1.8 },
       records: []
     },
     female: {
-      name: '兔姐', gender: 'female', height: 163, factor: 1.28,
+      name: '兔姐', gender: 'female', age: 31, height: 163, initialWeight: 49, goal: '塑形 + 保体重 + 降体脂长肌肉', factor: 1.28,
+      rules: { fatFull: 1.0, muscleFull: 0.4, weightBand: 1.2 },
       records: []
     }
   }
@@ -20,6 +22,8 @@ const state = {
 
 state.players.male.name = '柯柯';
 state.players.female.name = '兔姐';
+ensurePlayerDefaults(state.players.male, { age: 24, height: 175, initialWeight: 62.5, goal: '增肌 + 小幅减脂', factor: 1, rules: { fatFull: 1.2, muscleFull: 0.7, weightBand: 1.8 } });
+ensurePlayerDefaults(state.players.female, { age: 31, height: 163, initialWeight: 49, goal: '塑形 + 保体重 + 降体脂长肌肉', factor: 1.28, rules: { fatFull: 1.0, muscleFull: 0.4, weightBand: 1.2 } });
 state.players.male.records = removeDemoRecords(state.players.male.records || []);
 state.players.female.records = removeDemoRecords(state.players.female.records || []);
 
@@ -29,6 +33,13 @@ function rec(date, weight, fat, muscle, metabolism, image = 'demo') {
 
 function removeDemoRecords(records) {
   return records.filter(record => record.image !== 'demo');
+}
+
+function ensurePlayerDefaults(player, defaults) {
+  for (const [key, value] of Object.entries(defaults)) {
+    if (key === 'rules') player.rules = { ...value, ...(player.rules || {}) };
+    else if (!isFilled(player[key]) && player[key] !== '') player[key] = value;
+  }
 }
 
 function isFilled(value) { return value !== '' && value !== null && value !== undefined && !Number.isNaN(Number(value)); }
@@ -55,22 +66,22 @@ function scorePlayer(player) {
   const weightDrop = ((first.weight - last.weight) / first.weight) * 100;
   const metabolismChange = pct(first.metabolism, last.metabolism);
 
-  const fatFull = player.gender === 'male' ? 1.2 : 1.0;
+  const fatFull = Number(player.rules?.fatFull ?? (player.gender === 'male' ? 1.2 : 1.0));
   let fatScore = 0;
   if (fatDrop >= fatFull) fatScore = 40;
   else if (fatDrop >= 0.6) fatScore = 22;
   else if (fatDrop >= 0.1) fatScore = 10;
 
-  const muscleFull = player.gender === 'male' ? 0.7 : 0.4;
-  const muscleMid = player.gender === 'male' ? 0.35 : 0.2;
-  const muscleLow = player.gender === 'male' ? 0.34 : 0.19;
+  const muscleFull = Number(player.rules?.muscleFull ?? (player.gender === 'male' ? 0.7 : 0.4));
+  const muscleMid = muscleFull / 2;
+  const muscleLow = Math.max(0, muscleMid - 0.01);
   let muscleScore = 0;
   if (muscleChange >= muscleFull) muscleScore = 35;
   else if (muscleChange >= muscleMid) muscleScore = 18;
   else if (muscleChange >= 0 && muscleChange <= muscleLow) muscleScore = 8;
   else if (muscleChange < 0) muscleScore = -15;
 
-  const healthyBand = player.gender === 'male' ? 1.8 : 1.2;
+  const healthyBand = Number(player.rules?.weightBand ?? (player.gender === 'male' ? 1.8 : 1.2));
   let weightScore = weightChange <= healthyBand ? 15 : 5;
   if (weightDrop > 3) weightScore = 0;
 
@@ -121,8 +132,18 @@ function render() {
   renderDashboard(scores);
   renderRecordList();
   renderReport(scores);
+  renderRuleText();
   drawTrend();
   localStorage.setItem('shuangran.players', JSON.stringify(state.players));
+}
+
+function renderRuleText() {
+  const male = state.players.male;
+  const female = state.players.female;
+  document.querySelector('#fatRuleText').textContent = `${male.name}相对下降 ≥ ${male.rules.fatFull}% 满分，${female.name}相对下降 ≥ ${female.rules.fatFull}% 满分。无变化或上涨为 0 分。`;
+  document.querySelector('#muscleRuleText').textContent = `${male.name}周涨幅 ≥ ${male.rules.muscleFull}% 满分，${female.name}周涨幅 ≥ ${female.rules.muscleFull}% 满分。骨骼肌下降倒扣 15 分。`;
+  document.querySelector('#weightRuleText').textContent = `${male.name}单周体重浮动 ±${male.rules.weightBand}% 内满分，${female.name} ±${female.rules.weightBand}% 内满分。单周下降超过 3% 直接 0 分。`;
+  document.querySelector('#factorRuleText').textContent = `${male.name}最终分 = 原始分 × ${male.factor}；${female.name}最终分 = 原始分 × ${female.factor}。用于平衡不同目标和身体条件下的竞赛难度。`;
 }
 
 function renderScoreCard(key, score) {
@@ -370,9 +391,23 @@ function fillFormFromLatest() {
 
 function fillSettingsForm() {
   document.querySelector('#maleNameSetting').value = state.players.male.name;
+  document.querySelector('#maleAgeSetting').value = state.players.male.age ?? '';
   document.querySelector('#maleHeightSetting').value = state.players.male.height ?? '';
+  document.querySelector('#maleInitialWeightSetting').value = state.players.male.initialWeight ?? '';
+  document.querySelector('#maleGoalSetting').value = state.players.male.goal ?? '';
   document.querySelector('#femaleNameSetting').value = state.players.female.name;
+  document.querySelector('#femaleAgeSetting').value = state.players.female.age ?? '';
   document.querySelector('#femaleHeightSetting').value = state.players.female.height ?? '';
+  document.querySelector('#femaleInitialWeightSetting').value = state.players.female.initialWeight ?? '';
+  document.querySelector('#femaleGoalSetting').value = state.players.female.goal ?? '';
+  document.querySelector('#maleFactorSetting').value = state.players.male.factor ?? '';
+  document.querySelector('#femaleFactorSetting').value = state.players.female.factor ?? '';
+  document.querySelector('#maleFatFullSetting').value = state.players.male.rules?.fatFull ?? '';
+  document.querySelector('#femaleFatFullSetting').value = state.players.female.rules?.fatFull ?? '';
+  document.querySelector('#maleMuscleFullSetting').value = state.players.male.rules?.muscleFull ?? '';
+  document.querySelector('#femaleMuscleFullSetting').value = state.players.female.rules?.muscleFull ?? '';
+  document.querySelector('#maleWeightBandSetting').value = state.players.male.rules?.weightBand ?? '';
+  document.querySelector('#femaleWeightBandSetting').value = state.players.female.rules?.weightBand ?? '';
 }
 
 document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
@@ -473,11 +508,30 @@ document.querySelector('#recordForm').addEventListener('submit', event => {
 document.querySelector('#settingsForm').addEventListener('submit', event => {
   event.preventDefault();
   state.players.male.name = document.querySelector('#maleNameSetting').value || '柯柯';
+  state.players.male.age = readNumber('#maleAgeSetting');
   state.players.male.height = readNumber('#maleHeightSetting');
+  state.players.male.initialWeight = readNumber('#maleInitialWeightSetting');
+  state.players.male.goal = document.querySelector('#maleGoalSetting').value;
+  state.players.male.factor = readNumber('#maleFactorSetting') || 1;
+  state.players.male.rules = {
+    fatFull: readNumber('#maleFatFullSetting') || 1.2,
+    muscleFull: readNumber('#maleMuscleFullSetting') || 0.7,
+    weightBand: readNumber('#maleWeightBandSetting') || 1.8
+  };
   state.players.female.name = document.querySelector('#femaleNameSetting').value || '兔姐';
+  state.players.female.age = readNumber('#femaleAgeSetting');
   state.players.female.height = readNumber('#femaleHeightSetting');
+  state.players.female.initialWeight = readNumber('#femaleInitialWeightSetting');
+  state.players.female.goal = document.querySelector('#femaleGoalSetting').value;
+  state.players.female.factor = readNumber('#femaleFactorSetting') || 1.28;
+  state.players.female.rules = {
+    fatFull: readNumber('#femaleFatFullSetting') || 1.0,
+    muscleFull: readNumber('#femaleMuscleFullSetting') || 0.4,
+    weightBand: readNumber('#femaleWeightBandSetting') || 1.2
+  };
   localStorage.setItem('shuangran.players', JSON.stringify(state.players));
   render();
+  fillSettingsForm();
 });
 
 function getWeekRange(dateString) {
