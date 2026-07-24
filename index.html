@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>双燃 · 自律锻炼竞赛</title>
+  <meta name="theme-color" content="#f6f7f2" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主导航">
+      <div class="brand-block">
+        <div class="brand-mark">SR</div>
+        <div>
+          <h1>双燃</h1>
+          <p>两个人，一周一战</p>
+        </div>
+      </div>
+      <nav class="nav-list">
+        <button class="nav-item active" data-view="dashboard"><span>⌂</span>首页</button>
+        <button class="nav-item" data-view="record"><span>▣</span>记录</button>
+        <button class="nav-item" data-view="report"><span>▤</span>战报</button>
+        <button class="nav-item" data-view="rules"><span>◎</span>规则</button>
+      </nav>
+      <div class="season-card">
+        <strong>第 1 赛季</strong>
+        <span>第 1 周 · 周日 24:00 结算</span>
+      </div>
+    </aside>
+
+    <main class="main-panel">
+      <header class="topbar">
+        <div>
+          <h2 id="pageTitle">异地无监督公平赛</h2>
+        </div>
+        <div class="leader-pill" id="leaderPill">计算中</div>
+      </header>
+
+      <section class="view active" id="dashboardView" data-title="本周对战">
+        <div class="score-grid">
+          <article class="score-card" id="maleScoreCard"></article>
+          <div class="vs-badge">VS</div>
+          <article class="score-card" id="femaleScoreCard"></article>
+        </div>
+
+        <div class="insight-strip" id="weeklyInsight"></div>
+
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <h3>今日状态</h3>
+              <span id="recordCountLabel"></span>
+            </div>
+            <div class="today-grid" id="todayGrid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h3>体脂相对变化</h3>
+              <span>以周初为 0%</span>
+            </div>
+            <div class="trend-wrap">
+              <canvas id="trendCanvas" width="680" height="260"></canvas>
+              <div class="chart-tooltip" id="chartTooltip" role="status" aria-live="polite"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="recordView" data-title="今日记录">
+        <div class="record-layout">
+          <form class="panel record-form" id="recordForm">
+            <div class="panel-head">
+              <h3>晨起空腹数据</h3>
+              <span>保存后自动重算本周分数</span>
+            </div>
+
+            <div class="segmented" role="tablist" aria-label="选择记录人">
+              <button type="button" class="segment active" data-player="male">柯柯</button>
+              <button type="button" class="segment" data-player="female">兔姐</button>
+            </div>
+
+            <div class="form-grid">
+              <label>日期<input id="dateInput" type="date" required /></label>
+              <label>体重 kg<input id="weightInput" type="number" step="0.01" required /></label>
+              <label>体脂率 %<input id="fatInput" type="number" step="0.01" required /></label>
+              <label>骨骼肌 kg<input id="muscleInput" type="number" step="0.01" required /></label>
+              <label>基础代谢 kcal<input id="metabolismInput" type="number" step="1" required /></label>
+              <label>训练状态<select id="stateInput"><option>力量训练</option><option>有氧</option><option>拉伸</option><option>休息</option></select></label>
+            </div>
+
+            <label class="upload-box" for="imageInput">
+              <input id="imageInput" type="file" accept="image/*" />
+              <img id="imagePreview" alt="截图预览" />
+              <span id="uploadText">上传体脂秤截图</span>
+            </label>
+
+            <textarea id="noteInput" rows="3" placeholder="备注，比如训练内容、饮食状态、身体感觉"></textarea>
+            <button class="primary-btn" type="submit">保存今日记录</button>
+          </form>
+
+          <section class="panel">
+            <div class="panel-head"><h3>本周数据</h3><span>截图留存</span></div>
+            <div class="record-list" id="recordList"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="reportView" data-title="本周战报">
+        <div class="winner-panel" id="winnerPanel"></div>
+        <div class="breakdown-grid" id="breakdownGrid"></div>
+      </section>
+
+      <section class="view" id="rulesView" data-title="比赛规则">
+        <div class="rules-grid">
+          <article class="panel rule-card"><h3>体脂率优化 · 40 分</h3><p>男生相对下降 ≥ 1.2% 满分，女生相对下降 ≥ 1.0% 满分。无变化或上涨为 0 分。</p></article>
+          <article class="panel rule-card"><h3>骨骼肌增长 · 35 分</h3><p>男生周涨幅 ≥ 0.7% 满分，女生周涨幅 ≥ 0.4% 满分。骨骼肌下降倒扣 15 分。</p></article>
+          <article class="panel rule-card"><h3>健康体重稳定 · 15 分</h3><p>男生单周体重浮动 ±1.8% 内满分，女生 ±1.2% 内满分。单周下降超过 3% 直接 0 分。</p></article>
+          <article class="panel rule-card"><h3>基础代谢维持 · 10 分</h3><p>基础代谢上涨或持平 10 分，小幅下降小于 2% 得 4 分，下降大于等于 2% 为 0 分。</p></article>
+          <article class="panel rule-card wide"><h3>性别修正</h3><p>男生最终分 = 原始分 × 1.00；女生最终分 = 原始分 × 1.28。用于平衡男女肌肉增长、基础体脂和激素条件上的天然差异。</p></article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="mobile-tabs" aria-label="移动端导航">
+      <button class="mobile-tab active" data-view="dashboard">⌂<span>首页</span></button>
+      <button class="mobile-tab" data-view="record">▣<span>记录</span></button>
+      <button class="mobile-tab" data-view="report">▤<span>战报</span></button>
+      <button class="mobile-tab" data-view="rules">◎<span>规则</span></button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
