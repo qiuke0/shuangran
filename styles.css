@@ -177,6 +177,8 @@ canvas { width: 100%; max-width: 100%; height: auto; display: block; }
 .segment { border: 0; background: transparent; color: var(--muted); min-height: 42px; border-radius: 6px; font-weight: 900; }
 .segment.active { background: linear-gradient(180deg, #7d9636, #647f2c); color: #fffbea; box-shadow: 0 10px 22px rgba(92,112,39,.18); }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.settings-form { display: grid; gap: 14px; margin-bottom: 18px; }
+.settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 label { display: grid; gap: 6px; color: #4e5a53; font-size: 13px; font-weight: 800; }
 input, select, textarea {
   width: 100%;
@@ -243,7 +245,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
   .leader-pill { font-size: 12px; padding: 8px 10px; }
   .score-grid { grid-template-columns: 1fr; gap: 10px; }
   .vs-badge { width: 42px; height: 42px; justify-self: center; margin: -4px 0; }
-  .dashboard-grid, .record-layout, .breakdown-grid, .rules-grid { grid-template-columns: 1fr; }
+  .dashboard-grid, .record-layout, .breakdown-grid, .rules-grid, .settings-grid { grid-template-columns: 1fr; }
   .score-kpis, .today-grid, .form-grid { grid-template-columns: 1fr 1fr; }
   .mobile-tabs {
     position: fixed;
