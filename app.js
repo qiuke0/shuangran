@@ -176,10 +176,11 @@ function renderRecordList() {
   const player = state.players[state.activePlayer];
   const records = currentWeekRecords(player).sort((a, b) => b.date.localeCompare(a.date));
   document.querySelector('#recordList').innerHTML = records.length ? records.map(r => `
-    <article class="record-item">
+    <article class="record-item" data-date="${r.date}" data-player="${state.activePlayer}">
       <div><strong>${r.date} · ${r.state || '未标记'}</strong><span>${display(r.weight, 'kg')} / ${display(r.fat, '%')} / 骨骼肌 ${display(r.muscle, 'kg')} / 代谢 ${display(r.metabolism)}</span></div>
       <div class="thumb">${r.image && r.image !== 'demo' ? `<img src="${r.image}" alt="截图">` : '图'}</div>
     </article>`).join('') : '<p class="summary">本周还没有记录。上传截图后会自动识别并保存到这里。</p>';
+  document.querySelectorAll('.record-item').forEach(item => item.addEventListener('click', () => openRecordDetail(item.dataset.player, item.dataset.date)));
 }
 
 function renderReport(scores) {
@@ -248,17 +249,20 @@ function drawTrend() {
       const y = plot.top + (1 - ((item.value - min) / (max - min))) * (plot.bottom - plot.top);
       return { x, y, record: item.record, value: item.value, series: s };
     });
+    if (!points.length) return;
     state.trendPoints.push(...points);
-    const area = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
-    area.addColorStop(0, s.fill);
-    area.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.beginPath();
-    points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
-    ctx.lineTo(points[points.length - 1].x, plot.bottom);
-    ctx.lineTo(points[0].x, plot.bottom);
-    ctx.closePath();
-    ctx.fillStyle = area;
-    ctx.fill();
+    if (points.length > 1) {
+      const area = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
+      area.addColorStop(0, s.fill);
+      area.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.beginPath();
+      points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+      ctx.lineTo(points[points.length - 1].x, plot.bottom);
+      ctx.lineTo(points[0].x, plot.bottom);
+      ctx.closePath();
+      ctx.fillStyle = area;
+      ctx.fill();
+    }
 
     ctx.save();
     ctx.shadowColor = s.glow;
@@ -438,12 +442,14 @@ document.querySelector('#imageInput').addEventListener('change', event => {
 async function runOcr(imageData) {
   const status = document.querySelector('#ocrStatus');
   if (!window.Tesseract) {
-    status.textContent = 'OCR库未加载，已保留手动空值';
+    status.textContent = location.protocol === 'file:' ? 'OCR库未加载：请用线上链接或 http://127.0.0.1:4173 打开' : 'OCR库未加载，已保留手动空值';
     return;
   }
-  status.textContent = 'OCR识别中...';
+  status.textContent = 'OCR预处理中...';
   try {
-    const result = await Tesseract.recognize(imageData, 'chi_sim+eng');
+    const prepared = await prepareImageForOcr(imageData);
+    status.textContent = 'OCR识别中，长截图会慢一点...';
+    const result = await Tesseract.recognize(prepared, 'chi_sim+eng');
     const text = result.data.text || '';
     const parsed = parseScaleText(text);
     fillIfParsed('#weightInput', parsed.weight);
@@ -451,10 +457,63 @@ async function runOcr(imageData) {
     fillIfParsed('#muscleInput', parsed.muscle);
     fillIfParsed('#metabolismInput', parsed.metabolism);
     const found = Object.values(parsed).filter(isFilled).length;
-    status.textContent = found ? `OCR完成：识别到 ${found}/4 项` : 'OCR未识别到有效数据，请保留空值或手动修正';
+    status.textContent = found ? `OCR完成：识别到 ${found}/4 项` : 'OCR未识别到有效数据，可点记录详情手动修正';
   } catch (error) {
-    status.textContent = 'OCR识别失败，字段保持空值';
+    status.textContent = location.protocol === 'file:' ? 'OCR识别失败：file模式容易被浏览器拦截，请用在线链接打开' : 'OCR识别失败，字段保持空值';
   }
+}
+
+async function runDetailOcr(imageData) {
+  const status = document.querySelector('#detailOcrStatus');
+  if (!window.Tesseract) {
+    status.textContent = location.protocol === 'file:' ? 'OCR库未加载：请用线上链接或本地服务打开' : 'OCR库未加载，可以手动修正字段';
+    return;
+  }
+  status.textContent = '重新 OCR 预处理中...';
+  try {
+    const prepared = await prepareImageForOcr(imageData);
+    status.textContent = '重新 OCR 识别中...';
+    const result = await Tesseract.recognize(prepared, 'chi_sim+eng');
+    const parsed = parseScaleText(result.data.text || '');
+    fillIfParsed('#detailWeightInput', parsed.weight);
+    fillIfParsed('#detailFatInput', parsed.fat);
+    fillIfParsed('#detailMuscleInput', parsed.muscle);
+    fillIfParsed('#detailMetabolismInput', parsed.metabolism);
+    const found = Object.values(parsed).filter(isFilled).length;
+    status.textContent = found ? `重新识别完成：更新 ${found}/4 项，可继续手动校对` : '未识别到有效数据，原字段已保留';
+  } catch (error) {
+    status.textContent = '重新识别失败，原字段已保留';
+  }
+}
+
+function prepareImageForOcr(imageData) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxWidth = 1200;
+      const scale = Math.min(maxWidth / image.width, 1.6);
+      const width = Math.round(image.width * scale);
+      const height = Math.round(image.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0, width, height);
+      const imagePixels = ctx.getImageData(0, 0, width, height);
+      const data = imagePixels.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        const boosted = Math.max(0, Math.min(255, (gray - 128) * 1.35 + 142));
+        data[i] = boosted;
+        data[i + 1] = boosted;
+        data[i + 2] = boosted;
+      }
+      ctx.putImageData(imagePixels, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    image.onerror = reject;
+    image.src = imageData;
+  });
 }
 
 function fillIfParsed(selector, value) {
@@ -462,13 +521,29 @@ function fillIfParsed(selector, value) {
 }
 
 function parseScaleText(text) {
-  const normalized = text.replace(/\s+/g, ' ').replace(/％/g, '%');
+  const normalized = text.replace(/\s+/g, ' ').replace(/％/g, '%').replace(/,/g, '');
   return {
-    weight: pickNumber(normalized, ['体重', 'weight', 'kg']),
-    fat: pickNumber(normalized, ['体脂率', '体脂', 'body fat', 'fat']),
-    muscle: pickNumber(normalized, ['骨骼肌', '肌肉量', 'skeletal muscle', 'muscle']),
-    metabolism: pickNumber(normalized, ['基础代谢', '代谢', 'bmr', 'kcal'])
+    weight: pickBodyWeight(normalized),
+    fat: pickNumber(normalized, ['脂肪率', '体脂率', '体脂', 'body fat', 'fat']),
+    muscle: pickJinAsKg(normalized, ['骨骼肌量', '骨骼肌', '肌肉量', 'skeletal muscle', 'muscle']),
+    metabolism: pickNumber(normalized, ['基础代谢率', '基础代谢', '代谢', 'bmr', 'kcal'])
   };
+}
+
+function pickBodyWeight(text) {
+  const jinMatch = text.match(/([0-9]{2,3}(?:\.[0-9]{1,2})?)\s*斤/);
+  if (jinMatch) return round(Number(jinMatch[1]) / 2, 2);
+  return pickNumber(text, ['体重', 'weight', 'kg']);
+}
+
+function pickJinAsKg(text, labels) {
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`${escaped}[^0-9]{0,16}([0-9]{1,3}(?:\\.[0-9]{1,2})?)\\s*斤`, 'i');
+    const match = text.match(regex);
+    if (match) return round(Number(match[1]) / 2, 2);
+  }
+  return pickNumber(text, labels);
 }
 
 function pickNumber(text, labels) {
@@ -556,7 +631,110 @@ function readNumber(selector) {
   return value === '' ? '' : Number(value);
 }
 
+function openRecordDetail(playerKey, date) {
+  const player = state.players[playerKey];
+  const record = player.records.find(item => item.date === date);
+  if (!record) return;
+  document.querySelector('#detailOwner').textContent = `${player.name} · ${date}`;
+  document.querySelector('#detailPlayerKey').value = playerKey;
+  document.querySelector('#detailOriginalDate').value = date;
+  document.querySelector('#detailDateInput').value = record.date;
+  document.querySelector('#detailWeightInput').value = record.weight ?? '';
+  document.querySelector('#detailFatInput').value = record.fat ?? '';
+  document.querySelector('#detailMuscleInput').value = record.muscle ?? '';
+  document.querySelector('#detailMetabolismInput').value = record.metabolism ?? '';
+  document.querySelector('#detailStateInput').value = record.state || '力量训练';
+  document.querySelector('#detailNoteInput').value = record.note || '';
+  document.querySelector('#detailOcrStatus').textContent = '可以手动修正 OCR 识别结果';
+  document.querySelector('#detailImageInput').value = '';
+  const preview = document.querySelector('#detailImagePreview');
+  const upload = document.querySelector('.detail-upload');
+  if (record.image) {
+    preview.src = record.image;
+    upload.classList.add('has-image');
+    document.querySelector('#detailUploadText').textContent = '重新上传截图并 OCR';
+  } else {
+    preview.removeAttribute('src');
+    upload.classList.remove('has-image');
+    document.querySelector('#detailUploadText').textContent = '上传截图并 OCR';
+  }
+  document.querySelector('#recordModal').classList.add('open');
+  document.querySelector('#recordModal').setAttribute('aria-hidden', 'false');
+}
+
+function closeRecordDetail() {
+  document.querySelector('#recordModal').classList.remove('open');
+  document.querySelector('#recordModal').setAttribute('aria-hidden', 'true');
+}
+
+document.querySelector('#closeDetailBtn').addEventListener('click', closeRecordDetail);
+document.querySelector('#recordModal').addEventListener('click', event => {
+  if (event.target.id === 'recordModal') closeRecordDetail();
+});
+
+document.querySelector('#detailImageInput').addEventListener('change', event => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.querySelector('#detailImagePreview').src = reader.result;
+    document.querySelector('.detail-upload').classList.add('has-image');
+    document.querySelector('#detailUploadText').textContent = '已重新上传，可继续更换';
+    runDetailOcr(reader.result);
+  };
+  reader.readAsDataURL(file);
+});
+
+document.querySelector('#detailForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const playerKey = document.querySelector('#detailPlayerKey').value;
+  const originalDate = document.querySelector('#detailOriginalDate').value;
+  const player = state.players[playerKey];
+  const existing = player.records.find(item => item.date === originalDate) || {};
+  const imageSrc = document.querySelector('#detailImagePreview').getAttribute('src') || '';
+  const updated = {
+    date: document.querySelector('#detailDateInput').value,
+    weight: readNumber('#detailWeightInput'),
+    fat: readNumber('#detailFatInput'),
+    muscle: readNumber('#detailMuscleInput'),
+    metabolism: readNumber('#detailMetabolismInput'),
+    state: document.querySelector('#detailStateInput').value,
+    note: document.querySelector('#detailNoteInput').value,
+    image: imageSrc || existing.image || ''
+  };
+  player.records = player.records.filter(item => item.date !== originalDate && item.date !== updated.date).concat(updated).sort((a, b) => a.date.localeCompare(b.date));
+  closeRecordDetail();
+  render();
+});
+
+document.querySelector('#deleteDetailBtn').addEventListener('click', () => {
+  const playerKey = document.querySelector('#detailPlayerKey').value;
+  const originalDate = document.querySelector('#detailOriginalDate').value;
+  state.players[playerKey].records = state.players[playerKey].records.filter(item => item.date !== originalDate);
+  closeRecordDetail();
+  render();
+});
+
 fillFormFromLatest();
 fillSettingsForm();
 bindTrendTooltip();
 render();
+openDemoDetailIfRequested();
+
+function openDemoDetailIfRequested() {
+  if (!new URLSearchParams(location.search).has('demoDetail')) return;
+  state.activePlayer = 'female';
+  state.players.female.records = state.players.female.records.filter(record => record.date !== today).concat({
+    date: today,
+    weight: 48.45,
+    fat: 25.8,
+    muscle: 18.8,
+    metabolism: 1078,
+    state: '力量训练',
+    note: 'OCR 识别后可在这里手动校对，也可以重新上传截图。',
+    image: ''
+  });
+  render();
+  switchView('record');
+  openRecordDetail('female', today);
+}
