@@ -114,21 +114,38 @@
 
       <section class="view" id="rulesView" data-title="比赛规则">
         <form class="panel settings-form" id="settingsForm">
-          <div class="panel-head"><h3>基础数据设置</h3><span>保存后作为长期基础资料</span></div>
+          <div class="panel-head"><h3>个人基础资料</h3><span>保存后作为长期基础资料</span></div>
           <div class="settings-grid">
             <label>柯柯昵称<input id="maleNameSetting" type="text" /></label>
+            <label>柯柯年龄<input id="maleAgeSetting" type="number" step="1" /></label>
             <label>柯柯身高 cm<input id="maleHeightSetting" type="number" step="1" /></label>
+            <label>柯柯初始体重 kg<input id="maleInitialWeightSetting" type="number" step="0.1" /></label>
+            <label class="wide-field">柯柯目标<input id="maleGoalSetting" type="text" /></label>
             <label>兔姐昵称<input id="femaleNameSetting" type="text" /></label>
+            <label>兔姐年龄<input id="femaleAgeSetting" type="number" step="1" /></label>
             <label>兔姐身高 cm<input id="femaleHeightSetting" type="number" step="1" /></label>
+            <label>兔姐初始体重 kg<input id="femaleInitialWeightSetting" type="number" step="0.1" /></label>
+            <label class="wide-field">兔姐目标<input id="femaleGoalSetting" type="text" /></label>
+          </div>
+          <div class="panel-head sub-head"><h3>比赛规则参数</h3><span>直接影响每周计分</span></div>
+          <div class="settings-grid">
+            <label>柯柯修正系数<input id="maleFactorSetting" type="number" step="0.01" /></label>
+            <label>兔姐修正系数<input id="femaleFactorSetting" type="number" step="0.01" /></label>
+            <label>柯柯体脂满分降幅 %<input id="maleFatFullSetting" type="number" step="0.1" /></label>
+            <label>兔姐体脂满分降幅 %<input id="femaleFatFullSetting" type="number" step="0.1" /></label>
+            <label>柯柯肌肉满分涨幅 %<input id="maleMuscleFullSetting" type="number" step="0.1" /></label>
+            <label>兔姐肌肉满分涨幅 %<input id="femaleMuscleFullSetting" type="number" step="0.1" /></label>
+            <label>柯柯体重健康浮动 %<input id="maleWeightBandSetting" type="number" step="0.1" /></label>
+            <label>兔姐体重健康浮动 %<input id="femaleWeightBandSetting" type="number" step="0.1" /></label>
           </div>
           <button class="primary-btn" type="submit">保存基础数据</button>
         </form>
         <div class="rules-grid">
-          <article class="panel rule-card"><h3>体脂率优化 · 40 分</h3><p>男生相对下降 ≥ 1.2% 满分，女生相对下降 ≥ 1.0% 满分。无变化或上涨为 0 分。</p></article>
-          <article class="panel rule-card"><h3>骨骼肌增长 · 35 分</h3><p>男生周涨幅 ≥ 0.7% 满分，女生周涨幅 ≥ 0.4% 满分。骨骼肌下降倒扣 15 分。</p></article>
-          <article class="panel rule-card"><h3>健康体重稳定 · 15 分</h3><p>男生单周体重浮动 ±1.8% 内满分，女生 ±1.2% 内满分。单周下降超过 3% 直接 0 分。</p></article>
+          <article class="panel rule-card"><h3>体脂率优化 · 40 分</h3><p id="fatRuleText"></p></article>
+          <article class="panel rule-card"><h3>骨骼肌增长 · 35 分</h3><p id="muscleRuleText"></p></article>
+          <article class="panel rule-card"><h3>健康体重稳定 · 15 分</h3><p id="weightRuleText"></p></article>
           <article class="panel rule-card"><h3>基础代谢维持 · 10 分</h3><p>基础代谢上涨或持平 10 分，小幅下降小于 2% 得 4 分，下降大于等于 2% 为 0 分。</p></article>
-          <article class="panel rule-card wide"><h3>性别修正</h3><p>男生最终分 = 原始分 × 1.00；女生最终分 = 原始分 × 1.28。用于平衡男女肌肉增长、基础体脂和激素条件上的天然差异。</p></article>
+          <article class="panel rule-card wide"><h3>性别修正</h3><p id="factorRuleText"></p></article>
         </div>
       </section>
     </main>
