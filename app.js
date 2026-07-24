@@ -8,20 +8,20 @@ const state = {
   trendPoints: [],
   players: JSON.parse(localStorage.getItem('shuangran.players') || 'null') || {
     male: {
-      name: '柯柯', gender: 'male', age: 24, height: 175, initialWeight: 62.5, goal: '增肌 + 小幅减脂', factor: 1,
+      name: 'qiuke', gender: 'male', age: 24, height: 175, initialWeight: 62.5, goal: '增肌 + 小幅减脂', factor: 1,
       rules: { fatFull: 1.2, muscleFull: 0.7, weightBand: 1.8 },
       records: []
     },
     female: {
-      name: '兔姐', gender: 'female', age: 31, height: 163, initialWeight: 49, goal: '塑形 + 保体重 + 降体脂长肌肉', factor: 1.28,
+      name: 'mitoo', gender: 'female', age: 31, height: 163, initialWeight: 49, goal: '塑形 + 保体重 + 降体脂长肌肉', factor: 1.28,
       rules: { fatFull: 1.0, muscleFull: 0.4, weightBand: 1.2 },
       records: []
     }
   }
 };
 
-state.players.male.name = '柯柯';
-state.players.female.name = '兔姐';
+state.players.male.name = 'qiuke';
+state.players.female.name = 'mitoo';
 ensurePlayerDefaults(state.players.male, { age: 24, height: 175, initialWeight: 62.5, goal: '增肌 + 小幅减脂', factor: 1, rules: { fatFull: 1.2, muscleFull: 0.7, weightBand: 1.8 } });
 ensurePlayerDefaults(state.players.female, { age: 31, height: 163, initialWeight: 49, goal: '塑形 + 保体重 + 降体脂长肌肉', factor: 1.28, rules: { fatFull: 1.0, muscleFull: 0.4, weightBand: 1.2 } });
 state.players.male.records = removeDemoRecords(state.players.male.records || []);
@@ -225,8 +225,8 @@ function drawTrend() {
   roundRect(ctx, 0, 0, width, height, 22);
   ctx.fill();
   const series = [
-    { key: 'male', color: '#fff4b8', glow: 'rgba(255, 244, 184, .32)', fill: 'rgba(255, 244, 184, .16)', label: '柯柯' },
-    { key: 'female', color: '#ffd0a3', glow: 'rgba(255, 208, 163, .34)', fill: 'rgba(255, 208, 163, .16)', label: '兔姐' }
+    { key: 'male', color: '#fff4b8', glow: 'rgba(255, 244, 184, .32)', fill: 'rgba(255, 244, 184, .16)', label: 'qiuke' },
+    { key: 'female', color: '#ffd0a3', glow: 'rgba(255, 208, 163, .34)', fill: 'rgba(255, 208, 163, .16)', label: 'mitoo' }
   ];
   state.trendPoints = [];
   const all = series.flatMap(s => relativeFatSeries(state.players[s.key].records).map(item => item.value));
@@ -582,7 +582,7 @@ document.querySelector('#recordForm').addEventListener('submit', event => {
 
 document.querySelector('#settingsForm').addEventListener('submit', event => {
   event.preventDefault();
-  state.players.male.name = document.querySelector('#maleNameSetting').value || '柯柯';
+  state.players.male.name = document.querySelector('#maleNameSetting').value || 'qiuke';
   state.players.male.age = readNumber('#maleAgeSetting');
   state.players.male.height = readNumber('#maleHeightSetting');
   state.players.male.initialWeight = readNumber('#maleInitialWeightSetting');
@@ -593,7 +593,7 @@ document.querySelector('#settingsForm').addEventListener('submit', event => {
     muscleFull: readNumber('#maleMuscleFullSetting') || 0.7,
     weightBand: readNumber('#maleWeightBandSetting') || 1.8
   };
-  state.players.female.name = document.querySelector('#femaleNameSetting').value || '兔姐';
+  state.players.female.name = document.querySelector('#femaleNameSetting').value || 'mitoo';
   state.players.female.age = readNumber('#femaleAgeSetting');
   state.players.female.height = readNumber('#femaleHeightSetting');
   state.players.female.initialWeight = readNumber('#femaleInitialWeightSetting');
