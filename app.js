@@ -1,11 +1,18 @@
 const today = new Date().toISOString().slice(0, 10);
 const currentWeek = getWeekRange(today);
+const defaultSupabaseUrl = 'https://mlgxeupbjsyaczbjdekw.supabase.co';
+const defaultSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZ3hldXBianN5YWN6YmpkZWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MTU2NzAsImV4cCI6MjEwMDQ5MTY3MH0.DXm0lhA_mcnwKMHd4H3T6piskzVVi83r-qCwYbOloAM';
 
 const state = {
   activeView: 'dashboard',
   activePlayer: 'male',
   imageData: '',
   trendPoints: [],
+  cloud: {
+    url: localStorage.getItem('shuangran.supabase.url') || defaultSupabaseUrl,
+    anonKey: localStorage.getItem('shuangran.supabase.anonKey') || defaultSupabaseAnonKey,
+    client: null
+  },
   players: JSON.parse(localStorage.getItem('shuangran.players') || 'null') || {
     male: {
       name: 'qiuke', gender: 'male', age: 24, height: 175, initialWeight: 62.5, goal: '增肌 + 小幅减脂', factor: 1,
@@ -133,6 +140,7 @@ function render() {
   renderRecordList();
   renderReport(scores);
   renderRuleText();
+  fillCloudForm();
   drawTrend();
   localStorage.setItem('shuangran.players', JSON.stringify(state.players));
 }
@@ -414,6 +422,96 @@ function fillSettingsForm() {
   document.querySelector('#femaleWeightBandSetting').value = state.players.female.rules?.weightBand ?? '';
 }
 
+function fillCloudForm() {
+  const urlInput = document.querySelector('#supabaseUrlInput');
+  const keyInput = document.querySelector('#supabaseKeyInput');
+  if (!urlInput || !keyInput) return;
+  if (urlInput.value !== state.cloud.url) urlInput.value = state.cloud.url;
+  if (keyInput.value !== state.cloud.anonKey) keyInput.value = state.cloud.anonKey;
+  setCloudStatus(state.cloud.url && state.cloud.anonKey ? '已保存云端配置' : '未配置');
+}
+
+function setCloudStatus(message) {
+  const status = document.querySelector('#cloudStatus');
+  if (status) status.textContent = message;
+}
+
+function getSupabaseClient() {
+  if (!window.supabase) {
+    setCloudStatus('Supabase 库未加载，请用在线或本地服务打开');
+    return null;
+  }
+  if (!state.cloud.url || !state.cloud.anonKey) {
+    setCloudStatus('请先填写 URL 和 anon key');
+    return null;
+  }
+  if (!state.cloud.client) state.cloud.client = window.supabase.createClient(state.cloud.url, state.cloud.anonKey);
+  return state.cloud.client;
+}
+
+function saveCloudConfig() {
+  state.cloud.url = document.querySelector('#supabaseUrlInput').value.trim();
+  state.cloud.anonKey = document.querySelector('#supabaseKeyInput').value.trim();
+  state.cloud.client = null;
+  localStorage.setItem('shuangran.supabase.url', state.cloud.url);
+  localStorage.setItem('shuangran.supabase.anonKey', state.cloud.anonKey);
+  setCloudStatus(state.cloud.url && state.cloud.anonKey ? '云端配置已保存' : '未配置');
+}
+
+function cloudPayload() {
+  return {
+    players: withoutLocalImages(state.players),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function withoutLocalImages(players) {
+  return Object.fromEntries(Object.entries(players).map(([key, player]) => [key, {
+    ...player,
+    records: (player.records || []).map(record => ({ ...record, image: record.image && record.image.startsWith('data:') ? '' : record.image }))
+  }]));
+}
+
+async function syncToCloud() {
+  saveCloudConfig();
+  const client = getSupabaseClient();
+  if (!client) return;
+  setCloudStatus('正在同步到云端...');
+  const { error } = await client.from('shuangran_state').upsert({
+    id: 'main',
+    payload: cloudPayload(),
+    updated_at: new Date().toISOString()
+  });
+  if (error) {
+    setCloudStatus(`同步失败：${error.message}`);
+    return;
+  }
+  setCloudStatus('已同步到云端');
+}
+
+async function loadFromCloud() {
+  saveCloudConfig();
+  const client = getSupabaseClient();
+  if (!client) return;
+  setCloudStatus('正在读取云端...');
+  const { data, error } = await client.from('shuangran_state').select('payload, updated_at').eq('id', 'main').maybeSingle();
+  if (error) {
+    setCloudStatus(`读取失败：${error.message}`);
+    return;
+  }
+  if (!data?.payload?.players) {
+    setCloudStatus('云端暂无数据，可先同步到云端');
+    return;
+  }
+  state.players = data.payload.players;
+  ensurePlayerDefaults(state.players.male, { age: 24, height: 175, initialWeight: 62.5, goal: '增肌 + 小幅减脂', factor: 1, rules: { fatFull: 1.2, muscleFull: 0.7, weightBand: 1.8 } });
+  ensurePlayerDefaults(state.players.female, { age: 31, height: 163, initialWeight: 49, goal: '塑形 + 保体重 + 降体脂长肌肉', factor: 1.28, rules: { fatFull: 1.0, muscleFull: 0.4, weightBand: 1.2 } });
+  localStorage.setItem('shuangran.players', JSON.stringify(state.players));
+  render();
+  fillSettingsForm();
+  setCloudStatus(`已读取云端：${(data.updated_at || '').slice(0, 19).replace('T', ' ')}`);
+}
+
 document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
 document.querySelectorAll('.segment').forEach(btn => btn.addEventListener('click', () => {
   state.activePlayer = btn.dataset.player;
@@ -608,6 +706,10 @@ document.querySelector('#settingsForm').addEventListener('submit', event => {
   render();
   fillSettingsForm();
 });
+
+document.querySelector('#saveCloudConfigBtn').addEventListener('click', saveCloudConfig);
+document.querySelector('#syncCloudBtn').addEventListener('click', syncToCloud);
+document.querySelector('#loadCloudBtn').addEventListener('click', loadFromCloud);
 
 function getWeekRange(dateString) {
   const date = new Date(`${dateString}T00:00:00`);
