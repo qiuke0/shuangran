@@ -140,6 +140,24 @@
           </div>
           <button class="primary-btn" type="submit">保存基础数据</button>
         </form>
+
+        <section class="panel cloud-panel">
+          <div class="panel-head">
+            <h3>云同步设置</h3>
+            <span id="cloudStatus">未配置</span>
+          </div>
+          <div class="settings-grid">
+            <label>Supabase 项目 URL<input id="supabaseUrlInput" type="url" placeholder="https://xxxx.supabase.co" /></label>
+            <label>Supabase anon key<input id="supabaseKeyInput" type="password" placeholder="eyJhbGciOi..." /></label>
+          </div>
+          <div class="cloud-actions">
+            <button class="ghost-btn" type="button" id="saveCloudConfigBtn">保存云端配置</button>
+            <button class="secondary-btn" type="button" id="loadCloudBtn">从云端读取</button>
+            <button class="primary-btn" type="button" id="syncCloudBtn">同步到云端</button>
+          </div>
+          <p class="cloud-note">当前先同步基础资料、规则和每日数字记录；截图仍保存在本机。没有填写的数据会继续保持空值。</p>
+        </section>
+
         <div class="rules-grid">
           <article class="panel rule-card"><h3>体脂率优化 · 40 分</h3><p id="fatRuleText"></p></article>
           <article class="panel rule-card"><h3>骨骼肌增长 · 35 分</h3><p id="muscleRuleText"></p></article>
@@ -192,6 +210,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
 </body>
 </html>
