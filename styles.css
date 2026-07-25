@@ -212,6 +212,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
 .upload-box.has-image span { position: absolute; right: 10px; bottom: 10px; background: rgba(22,32,24,.82); color: white; border-radius: 999px; padding: 7px 10px; font-size: 12px; }
 .primary-btn { min-height: 52px; border: 0; border-radius: 16px; background: linear-gradient(180deg, #7d9636, #647f2c); color: #fffbea; font-weight: 950; box-shadow: 0 14px 28px rgba(92,112,39,.24); }
 .primary-btn:hover { filter: brightness(1.03); }
+.secondary-btn { min-height: 52px; border: 1px solid rgba(112, 136, 46, .3); border-radius: 16px; background: rgba(228, 233, 200, .9); color: #4f6429; font-weight: 950; }
+.cloud-panel { display: grid; gap: 14px; margin-bottom: 18px; }
+.cloud-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.cloud-note { margin: 0; color: #6b5d43; line-height: 1.65; font-size: 13px; font-weight: 750; }
 .record-list { display: grid; gap: 10px; }
 .record-item { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; border-bottom: 1px solid #eef0ea; padding: 8px 0 12px; }
 .record-item { cursor: pointer; border-radius: 12px; padding-left: 8px; padding-right: 8px; }
@@ -283,6 +287,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--green); box-shad
   .score-grid { grid-template-columns: 1fr; gap: 10px; }
   .vs-badge { width: 42px; height: 42px; justify-self: center; margin: -4px 0; }
   .dashboard-grid, .record-layout, .breakdown-grid, .rules-grid, .settings-grid { grid-template-columns: 1fr; }
+  .cloud-actions { grid-template-columns: 1fr; }
   .wide-field { grid-column: auto; }
   .score-kpis, .today-grid, .form-grid { grid-template-columns: 1fr 1fr; }
   .mobile-tabs {
