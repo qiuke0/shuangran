@@ -2,6 +2,7 @@ const today = new Date().toISOString().slice(0, 10);
 const currentWeek = getWeekRange(today);
 const defaultSupabaseUrl = 'https://mlgxeupbjsyaczbjdekw.supabase.co';
 const defaultSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sZ3hldXBianN5YWN6YmpkZWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MTU2NzAsImV4cCI6MjEwMDQ5MTY3MH0.DXm0lhA_mcnwKMHd4H3T6piskzVVi83r-qCwYbOloAM';
+const imageBucket = 'record-images';
 
 const state = {
   activeView: 'dashboard',
@@ -460,23 +461,51 @@ function saveCloudConfig() {
 
 function cloudPayload() {
   return {
-    players: withoutLocalImages(state.players),
+    players: state.players,
     updatedAt: new Date().toISOString()
   };
 }
 
-function withoutLocalImages(players) {
-  return Object.fromEntries(Object.entries(players).map(([key, player]) => [key, {
-    ...player,
-    records: (player.records || []).map(record => ({ ...record, image: record.image && record.image.startsWith('data:') ? '' : record.image }))
-  }]));
+function dataUrlToBlob(dataUrl) {
+  const [meta, content] = dataUrl.split(',');
+  const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/png';
+  const binary = atob(content);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+async function uploadRecordImage(imageData, playerKey, date) {
+  if (!imageData || !imageData.startsWith('data:')) return imageData || '';
+  const client = getSupabaseClient();
+  if (!client) return imageData;
+  setCloudStatus('正在上传截图到云端...');
+  const blob = dataUrlToBlob(imageData);
+  const ext = blob.type.includes('jpeg') ? 'jpg' : blob.type.includes('webp') ? 'webp' : 'png';
+  const path = `${playerKey}/${date}-${Date.now()}.${ext}`;
+  const { error } = await client.storage.from(imageBucket).upload(path, blob, {
+    cacheControl: '3600',
+    upsert: true,
+    contentType: blob.type
+  });
+  if (error) {
+    setCloudStatus(`截图上传失败：${error.message}`);
+    throw error;
+  }
+  const { data } = client.storage.from(imageBucket).getPublicUrl(path);
+  setCloudStatus('截图已上传云端');
+  return data.publicUrl;
 }
 
 async function syncToCloud() {
   saveCloudConfig();
+  return saveStateToCloud('正在同步到云端...', '已同步到云端');
+}
+
+async function saveStateToCloud(loadingMessage = '正在保存到云端...', successMessage = '已保存到云端') {
   const client = getSupabaseClient();
-  if (!client) return;
-  setCloudStatus('正在同步到云端...');
+  if (!client) return false;
+  setCloudStatus(loadingMessage);
   const { error } = await client.from('shuangran_state').upsert({
     id: 'main',
     payload: cloudPayload(),
@@ -484,9 +513,10 @@ async function syncToCloud() {
   });
   if (error) {
     setCloudStatus(`同步失败：${error.message}`);
-    return;
+    return false;
   }
-  setCloudStatus('已同步到云端');
+  setCloudStatus(successMessage);
+  return true;
 }
 
 async function loadFromCloud() {
@@ -654,10 +684,17 @@ function pickNumber(text, labels) {
   return '';
 }
 
-document.querySelector('#recordForm').addEventListener('submit', event => {
+document.querySelector('#recordForm').addEventListener('submit', async event => {
   event.preventDefault();
   const player = state.players[state.activePlayer];
   const date = document.querySelector('#dateInput').value;
+  let image = state.imageData || '';
+  try {
+    image = await uploadRecordImage(image, state.activePlayer, date);
+  } catch (error) {
+    document.querySelector('#ocrStatus').textContent = '截图云端上传失败，请先检查 Storage 设置；记录未保存';
+    return;
+  }
   const next = {
     date,
     weight: readNumber('#weightInput'),
@@ -666,7 +703,7 @@ document.querySelector('#recordForm').addEventListener('submit', event => {
     metabolism: readNumber('#metabolismInput'),
     state: document.querySelector('#stateInput').value,
     note: document.querySelector('#noteInput').value,
-    image: state.imageData || ''
+    image
   };
   player.records = player.records.filter(r => r.date !== date).concat(next).sort((a, b) => a.date.localeCompare(b.date));
   state.imageData = '';
@@ -675,6 +712,7 @@ document.querySelector('#recordForm').addEventListener('submit', event => {
   document.querySelector('.upload-box').classList.remove('has-image');
   document.querySelector('#uploadText').textContent = '上传体脂秤截图';
   render();
+  await saveStateToCloud('正在保存记录到云端...', '记录和截图已保存到云端');
   switchView('dashboard');
 });
 
@@ -787,15 +825,22 @@ document.querySelector('#detailImageInput').addEventListener('change', event => 
   reader.readAsDataURL(file);
 });
 
-document.querySelector('#detailForm').addEventListener('submit', event => {
+document.querySelector('#detailForm').addEventListener('submit', async event => {
   event.preventDefault();
   const playerKey = document.querySelector('#detailPlayerKey').value;
   const originalDate = document.querySelector('#detailOriginalDate').value;
   const player = state.players[playerKey];
   const existing = player.records.find(item => item.date === originalDate) || {};
-  const imageSrc = document.querySelector('#detailImagePreview').getAttribute('src') || '';
+  const date = document.querySelector('#detailDateInput').value;
+  let imageSrc = document.querySelector('#detailImagePreview').getAttribute('src') || '';
+  try {
+    imageSrc = await uploadRecordImage(imageSrc, playerKey, date);
+  } catch (error) {
+    document.querySelector('#detailOcrStatus').textContent = '截图云端上传失败，请检查 Storage 设置后再保存';
+    return;
+  }
   const updated = {
-    date: document.querySelector('#detailDateInput').value,
+    date,
     weight: readNumber('#detailWeightInput'),
     fat: readNumber('#detailFatInput'),
     muscle: readNumber('#detailMuscleInput'),
@@ -807,6 +852,7 @@ document.querySelector('#detailForm').addEventListener('submit', event => {
   player.records = player.records.filter(item => item.date !== originalDate && item.date !== updated.date).concat(updated).sort((a, b) => a.date.localeCompare(b.date));
   closeRecordDetail();
   render();
+  await saveStateToCloud('正在保存修改到云端...', '修改已保存到云端');
 });
 
 document.querySelector('#deleteDetailBtn').addEventListener('click', () => {
