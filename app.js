@@ -183,12 +183,15 @@ function renderDashboard(scores) {
 
 function renderRecordList() {
   const player = state.players[state.activePlayer];
-  const records = currentWeekRecords(player).sort((a, b) => b.date.localeCompare(a.date));
-  document.querySelector('#recordList').innerHTML = records.length ? records.map(r => `
+  const weekRecords = currentWeekRecords(player).sort((a, b) => b.date.localeCompare(a.date));
+  const historyRecords = [...player.records].sort((a, b) => b.date.localeCompare(a.date));
+  const records = weekRecords.length ? weekRecords : historyRecords;
+  const label = weekRecords.length ? '本周数据' : '历史记录';
+  document.querySelector('#recordList').innerHTML = records.length ? `<p class="summary">${label} · 共 ${records.length} 条</p>${records.map(r => `
     <article class="record-item" data-date="${r.date}" data-player="${state.activePlayer}">
       <div><strong>${r.date} · ${r.state || '未标记'}</strong><span>${display(r.weight, 'kg')} / ${display(r.fat, '%')} / 骨骼肌 ${display(r.muscle, 'kg')} / 代谢 ${display(r.metabolism)}</span></div>
       <div class="thumb">${r.image && r.image !== 'demo' ? `<img src="${r.image}" alt="截图">` : '图'}</div>
-    </article>`).join('') : '<p class="summary">本周还没有记录。上传截图后会自动识别并保存到这里。</p>';
+    </article>`).join('')}` : '<p class="summary">还没有记录。上传截图后会自动识别并提交数据库。</p>';
   document.querySelectorAll('.record-item').forEach(item => item.addEventListener('click', () => openRecordDetail(item.dataset.player, item.dataset.date)));
 }
 
@@ -547,7 +550,8 @@ async function loadFromCloud() {
   localStorage.setItem('shuangran.players', JSON.stringify(state.players));
   render();
   fillSettingsForm();
-  setCloudStatus(`已读取云端：${(data.updated_at || '').slice(0, 19).replace('T', ' ')}`);
+  const recordCount = Object.values(state.players).reduce((total, player) => total + (player.records || []).length, 0);
+  setCloudStatus(`已读取云端：${recordCount} 条记录 · ${(data.updated_at || '').slice(0, 19).replace('T', ' ')}`);
 }
 
 document.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
