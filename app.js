@@ -437,6 +437,14 @@ function setCloudStatus(message) {
   if (status) status.textContent = message;
 }
 
+function setButtonLoading(selector, loading, text) {
+  const button = document.querySelector(selector);
+  if (!button) return;
+  if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent;
+  button.disabled = loading;
+  button.textContent = loading ? text : button.dataset.defaultText;
+}
+
 function getSupabaseClient() {
   if (!window.supabase) {
     setCloudStatus('Supabase 库未加载，请用在线或本地服务打开');
@@ -686,6 +694,7 @@ function pickNumber(text, labels) {
 
 document.querySelector('#recordForm').addEventListener('submit', async event => {
   event.preventDefault();
+  setButtonLoading('#saveRecordBtn', true, '正在提交...');
   const player = state.players[state.activePlayer];
   const date = document.querySelector('#dateInput').value;
   let image = state.imageData || '';
@@ -693,6 +702,7 @@ document.querySelector('#recordForm').addEventListener('submit', async event => 
     image = await uploadRecordImage(image, state.activePlayer, date);
   } catch (error) {
     document.querySelector('#ocrStatus').textContent = '截图云端上传失败，请先检查 Storage 设置；记录未保存';
+    setButtonLoading('#saveRecordBtn', false);
     return;
   }
   const next = {
@@ -712,12 +722,14 @@ document.querySelector('#recordForm').addEventListener('submit', async event => 
   document.querySelector('.upload-box').classList.remove('has-image');
   document.querySelector('#uploadText').textContent = '上传体脂秤截图';
   render();
-  await saveStateToCloud('正在保存记录到云端...', '记录和截图已保存到云端');
-  switchView('dashboard');
+  const saved = await saveStateToCloud('正在保存记录到数据库...', '记录和截图已提交数据库');
+  setButtonLoading('#saveRecordBtn', false);
+  if (saved) switchView('dashboard');
 });
 
-document.querySelector('#settingsForm').addEventListener('submit', event => {
+document.querySelector('#settingsForm').addEventListener('submit', async event => {
   event.preventDefault();
+  setButtonLoading('#saveSettingsBtn', true, '正在提交...');
   state.players.male.name = document.querySelector('#maleNameSetting').value || 'qiuke';
   state.players.male.age = readNumber('#maleAgeSetting');
   state.players.male.height = readNumber('#maleHeightSetting');
@@ -743,6 +755,8 @@ document.querySelector('#settingsForm').addEventListener('submit', event => {
   localStorage.setItem('shuangran.players', JSON.stringify(state.players));
   render();
   fillSettingsForm();
+  await saveStateToCloud('正在保存基础数据到数据库...', '基础数据已提交数据库');
+  setButtonLoading('#saveSettingsBtn', false);
 });
 
 document.querySelector('#saveCloudConfigBtn').addEventListener('click', saveCloudConfig);
@@ -827,6 +841,7 @@ document.querySelector('#detailImageInput').addEventListener('change', event => 
 
 document.querySelector('#detailForm').addEventListener('submit', async event => {
   event.preventDefault();
+  setButtonLoading('#saveDetailBtn', true, '正在提交...');
   const playerKey = document.querySelector('#detailPlayerKey').value;
   const originalDate = document.querySelector('#detailOriginalDate').value;
   const player = state.players[playerKey];
@@ -837,6 +852,7 @@ document.querySelector('#detailForm').addEventListener('submit', async event => 
     imageSrc = await uploadRecordImage(imageSrc, playerKey, date);
   } catch (error) {
     document.querySelector('#detailOcrStatus').textContent = '截图云端上传失败，请检查 Storage 设置后再保存';
+    setButtonLoading('#saveDetailBtn', false);
     return;
   }
   const updated = {
@@ -852,15 +868,19 @@ document.querySelector('#detailForm').addEventListener('submit', async event => 
   player.records = player.records.filter(item => item.date !== originalDate && item.date !== updated.date).concat(updated).sort((a, b) => a.date.localeCompare(b.date));
   closeRecordDetail();
   render();
-  await saveStateToCloud('正在保存修改到云端...', '修改已保存到云端');
+  await saveStateToCloud('正在保存修改到数据库...', '修改已提交数据库');
+  setButtonLoading('#saveDetailBtn', false);
 });
 
-document.querySelector('#deleteDetailBtn').addEventListener('click', () => {
+document.querySelector('#deleteDetailBtn').addEventListener('click', async () => {
+  setButtonLoading('#deleteDetailBtn', true, '正在删除...');
   const playerKey = document.querySelector('#detailPlayerKey').value;
   const originalDate = document.querySelector('#detailOriginalDate').value;
   state.players[playerKey].records = state.players[playerKey].records.filter(item => item.date !== originalDate);
   closeRecordDetail();
   render();
+  await saveStateToCloud('正在从数据库删除记录...', '记录已从数据库删除');
+  setButtonLoading('#deleteDetailBtn', false);
 });
 
 fillFormFromLatest();
