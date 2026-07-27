@@ -97,7 +97,7 @@
             </label>
 
             <textarea id="noteInput" rows="3" placeholder="备注，比如训练内容、饮食状态、身体感觉"></textarea>
-            <button class="primary-btn" type="submit">保存今日记录</button>
+            <button class="primary-btn" type="submit" id="saveRecordBtn">保存今日记录并提交数据库</button>
           </form>
 
           <section class="panel">
@@ -138,7 +138,7 @@
             <label>qiuke体重健康浮动 %<input id="maleWeightBandSetting" type="number" step="0.1" /></label>
             <label>metoo体重健康浮动 %<input id="femaleWeightBandSetting" type="number" step="0.1" /></label>
           </div>
-          <button class="primary-btn" type="submit">保存基础数据</button>
+          <button class="primary-btn" type="submit" id="saveSettingsBtn">保存基础数据并提交数据库</button>
         </form>
 
         <section class="panel cloud-panel">
@@ -153,7 +153,7 @@
           <div class="cloud-actions">
             <button class="ghost-btn" type="button" id="saveCloudConfigBtn">保存云端配置</button>
             <button class="secondary-btn" type="button" id="loadCloudBtn">从云端读取</button>
-            <button class="primary-btn" type="button" id="syncCloudBtn">同步到云端</button>
+            <button class="primary-btn" type="button" id="syncCloudBtn">手动备份到云端</button>
           </div>
           <p class="cloud-note">当前先同步基础资料、规则和每日数字记录；截图仍保存在本机。没有填写的数据会继续保持空值。</p>
         </section>
@@ -203,7 +203,7 @@
         <textarea id="detailNoteInput" rows="3" placeholder="备注，比如训练内容、饮食状态、身体感觉"></textarea>
         <div class="modal-actions">
           <button class="ghost-btn" type="button" id="deleteDetailBtn">删除记录</button>
-          <button class="primary-btn" type="submit">保存修改</button>
+          <button class="primary-btn" type="submit" id="saveDetailBtn">保存修改并提交数据库</button>
         </div>
       </form>
     </div>
